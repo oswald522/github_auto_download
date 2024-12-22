@@ -1,111 +1,138 @@
 import requests
 import yaml
-import os
 import zipfile
 import tarfile
-import shutil
+from pathlib import Path
 
+# GitHub API URL template for fetching release information
+GITHUB_API_URL = "https://api.github.com/repos/{repo}/releases/latest"
+
+# Cache directory to store downloaded files and version info
+CACHE_DIR = Path(".cache")
+CACHE_DIR.mkdir(exist_ok=True)
 
 def load_yaml(file_path):
-    """加载 YAML 文件"""
-    with open(file_path, 'r',encoding='utf-8') as file:
-        return yaml.safe_load(file)
+    """Load the YAML configuration file."""
+    with open(file_path, "r") as f:
+        return yaml.safe_load(f)
 
 def save_yaml(data, file_path):
-    """保存 YAML 文件"""
-    with open(file_path, 'w',encoding='utf-8') as file:
-        yaml.safe_dump(data, file)
+    """Save the updated YAML configuration back to the file."""
+    with open(file_path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
-def get_github_releases(owner, repo, token=None):
-    """获取 GitHub Releases 信息"""
-    url = f"https://api.github.com/repos/{owner}/{repo}/releases"
-    headers = {'Authorization': f'token {token}'} if token else {}
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
+def get_latest_release(repo):
+    """Fetch the latest release information from GitHub."""
+    url = GITHUB_API_URL.format(repo=repo)
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Failed to fetch release info for {repo}: {response.status_code}")
+        return None
 
-def find_best_asset(releases, file_keywords):
-    """根据关键词匹配最佳的 Release Asset"""
-    for release in releases:
-        for asset in release['assets']:
-            for keyword in file_keywords:
-                file_keyword, arch = keyword.split(':')  # 分割关键词和架构
-                if all(k in asset['name'] for k in file_keyword.split(',')):
-                    return asset, arch  # 返回匹配的 Asset 和对应的架构
-    return None, None
-
-def download_asset(asset, download_path):
-    """下载 Release Asset"""
-    url = asset['browser_download_url']
+def download_file(url, save_path):
+    """Download a file from a URL and save it to the specified path."""
     response = requests.get(url, stream=True)
-    response.raise_for_status()
+    if response.status_code == 200:
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(save_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                f.write(chunk)
+        print(f"Downloaded: {save_path}")
+    else:
+        print(f"Failed to download {url}: {response.status_code}")
 
-    with open(download_path, 'wb') as file:
-        for chunk in response.iter_content(chunk_size=8192):
-            file.write(chunk)
-
-def extract_and_classify(download_path, extract_dir, arch):
-    """解压文件并分类到 bins/$ARCH"""
-    if download_path.endswith('.zip'):
-        with zipfile.ZipFile(download_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_dir)
-    elif download_path.endswith(('.tar.gz', '.tgz', '.tar.bz2', '.tar.xz')):
-        with tarfile.open(download_path, 'r:*') as tar_ref:
-            tar_ref.extractall(extract_dir)
-
-    # 将解压后的文件移动到 bins/$ARCH
-    target_dir = os.path.join('bins', arch)
-    os.makedirs(target_dir, exist_ok=True)
-
-    for root, dirs, files in os.walk(extract_dir):
-        for file in files:
-            src_path = os.path.join(root, file)
-            dest_path = os.path.join(target_dir, file)
-            shutil.move(src_path, dest_path)
-
-def update_yaml_version(yaml_data, name, new_version):
-    """更新 YAML 文件中的版本号"""
-    for release in yaml_data['releases']:
-        if release['name'] == name:
-            release['version'] = new_version
-            break
-
-def main():
-    yaml_file = 'config.yaml'
-    yaml_data = load_yaml(yaml_file)
-
-    token = yaml_data.get('github', {}).get('token')  # 可选：GitHub token
-
-    for release_info in yaml_data['releases']:
-        owner, repo = release_info['repo'].split('/')
-        file_keywords = release_info['file_keywords']
-
-        # 获取 GitHub Releases
-        releases = get_github_releases(owner, repo, token)
-        best_asset, arch = find_best_asset(releases, file_keywords)
-
-        if best_asset:
-            # 下载文件
-            download_path = os.path.join('downloads', best_asset['name'])
-            os.makedirs(os.path.dirname(download_path), exist_ok=True)
-            download_asset(best_asset, download_path)
-            print(f"Downloaded: {best_asset['name']}")
-
-            # 解压并分类
-            extract_dir = 'extracted'
-            os.makedirs(extract_dir, exist_ok=True)
-            extract_and_classify(download_path, extract_dir, arch)
-
-            # 更新 YAML 文件中的版本号
-            new_version = best_asset['name']  # 或者从文件名中提取版本号
-            update_yaml_version(yaml_data, release_info['name'], new_version)
-            save_yaml(yaml_data, yaml_file)
-
-            # 清理临时文件
-            os.remove(download_path)
-            shutil.rmtree(extract_dir)
+def extract_file(file_path, extract_to):
+    """Extract a compressed file to the specified directory."""
+    try:
+        if file_path.suffix == ".zip":
+            with zipfile.ZipFile(file_path, "r") as zip_ref:
+                zip_ref.extractall(extract_to)
+                print(f"Extracted {file_path} to {extract_to}")
+        elif file_path.suffix in [".tar", ".gz", ".bz2", ".xz"]:
+            with tarfile.open(file_path, "r:*") as tar_ref:
+                tar_ref.extractall(extract_to)
+                print(f"Extracted {file_path} to {extract_to}")
         else:
-            print(f"No matching asset found for {release_info['name']}.")
+            print(f"File {file_path} is not a recognized archive format. Skipping extraction.")
+    except Exception as e:
+        print(f"Failed to extract {file_path}: {e}")
+
+def find_best_match(assets, keywords):
+    """
+    Find the best matching asset based on the keywords.
+    The more keywords a file matches, the higher its score.
+    """
+    best_match = None
+    best_score = 0
+
+    for asset in assets:
+        score = sum(1 for keyword in keywords if keyword in asset["name"])
+        if score > best_score:
+            best_match = asset
+            best_score = score
+
+    return best_match
+
+def process_releases(config, config_path):
+    """Process each release in the YAML configuration."""
+    updated = False  # Track if the YAML file needs to be updated
+
+    for release in config.get("releases", []):
+        name = release["name"]
+        repo = release["repo"]
+        version = release.get("version", "")
+        file_list = release.get("file_list", [])
+
+        # Fetch the latest release info
+        latest_release = get_latest_release(repo)
+        if not latest_release:
+            continue
+
+        latest_version = latest_release["tag_name"]
+        if version and latest_version == version:
+            print(f"{name} is up-to-date. Skipping download.")
+            continue
+
+        print(f"Updating {name} from version {version} to {latest_version}.")
+
+        # Update the version in the YAML configuration
+        release["version"] = latest_version
+        updated = True
+
+        # Download files based on file_list
+        for file_entry in file_list:
+            file_keywords, save_path_suffix = file_entry.split(":")
+            keywords = file_keywords.split(",")  # Split keywords by ","
+            save_path = Path('bins/'+save_path_suffix)
+
+            # Find the best matching asset
+            assets = latest_release.get("assets", [])
+            best_match = find_best_match(assets, keywords)
+
+            if best_match:
+                # Download the file
+                temp_file = CACHE_DIR / best_match["name"]
+                download_file(best_match["browser_download_url"], temp_file)
+
+                # Extract the file if it's a compressed file
+                extract_file(temp_file, save_path)
+
+                # Clean up the temporary file
+                temp_file.unlink()
+            else:
+                print(f"No matching file found for keywords '{file_keywords}' in release assets for {name}.")
+
+    # Save the updated YAML configuration if changes were made
+    if updated:
+        save_yaml(config, config_path)
+        print(f"Updated YAML configuration saved to {config_path}.")
 
 if __name__ == "__main__":
-    main()
+    # Load the YAML configuration
+    config_path = "config.yaml"
+    config = load_yaml(config_path)
+
+    # Process the releases
+    process_releases(config, config_path)

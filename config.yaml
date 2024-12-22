@@ -1,19 +1,19 @@
 releases:
-  - name: fzf
-    repo: junegunn/fzf
-    version: v1.0.0
-    file_keywords:
-      - 'linux,amd64:amd64'
-      - 'linux,arm64:arm'
-  - name: dust
-    repo: bootandy/dust
-    version: v1.0.0
-    file_keywords:
-      - 'x86_64-unknown-linux-gnu:amd64'
-      - 'arm-unknown-linux-gnu:arm'
-  - name: eza
-    repo: eza-community/eza
-    version: '' 
-    file_keywords:
-      - 'eza_arm-unknown-linux-gnueabihf.zip:arm'
-      - 'eza_x86_64-unknown-linux-gnu.tar.gz:amd64'
+- name: fzf
+  repo: junegunn/fzf
+  version: ''
+  file_list:
+  - linux,amd64:amd64
+  - linux,arm64:arm
+- name: dust
+  repo: bootandy/dust
+  version: ''
+  file_list:
+  - x86_64-unknown-linux-gnu:amd64
+  - arm-unknown-linux-gnu:arm
+- name: eza
+  repo: eza-community/eza
+  version: ''
+  file_list:
+  - eza_arm-unknown-linux-gnueabihf:arm
+  - eza_x86_64-unknown-linux-gnu:amd64
