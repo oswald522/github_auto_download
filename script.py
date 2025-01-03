@@ -6,7 +6,6 @@ import tarfile
 from pathlib import Path
 from webdav3.client import Client
 
-
 # WEBDAV3 options
 options = {
     'webdav_hostname': os.getenv('WEBDAV_URL'),
@@ -24,31 +23,75 @@ CACHE_DIR.mkdir(exist_ok=True)
 
 def load_yaml(file_path):
     """Load the YAML configuration file."""
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding='utf-8') as f:
         return yaml.safe_load(f)
 
-def get_latest_release(repo):
-    """Fetch the latest release information from GitHub."""
-    url = GITHUB_API_URL.format(repo=repo)
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Failed to fetch release info for {repo}: {response.status_code}")
-        return None
+def get_latest_releases(config):
+    """获取所有仓库的最新版本信息"""
+    latest_releases = {}
+    for release in config.get("releases", []):
+        repo = release["repo"]
+        url = GITHUB_API_URL.format(repo=repo)
+        response = requests.get(url)
+        if response.status_code == 200:
+            latest_releases[repo] = response.json()
+        else:
+            print(f"Failed to fetch release info for {repo}: {response.status_code}")
+            latest_releases[repo] = None
+    return latest_releases
 
-def is_version_updated(name, latest_version):
-    """Check if the version is updated compared to the cached version."""
-    version_file = CACHE_DIR / f"{name}_version.txt"
-    if version_file.exists():
-        with open(version_file, "r") as f:
-            cached_version = f.read().strip()
-        if cached_version == latest_version:
-            return False  # No update
-    # Update the cached version
-    with open(version_file, "w") as f:
-        f.write(latest_version)
-    return True
+def check_and_update_versions(config, latest_releases, config_path="config.yaml", update=False) -> bool:
+    """
+    检查并可选地更新配置文件中的版本信息
+    参数:
+        config: 配置信息
+        latest_releases: 最新版本信息
+        config_path: 配置文件路径
+        update: 是否更新配置文件
+    返回:
+        bool: 是否有版本更新
+    """
+    has_updates = False
+    
+    for release in config.get("releases", []):
+        repo = release["repo"]
+        latest_release = latest_releases[repo]
+        if not latest_release:
+            continue
+            
+        current_version = release.get("version")
+        latest_version = latest_release["tag_name"]
+        
+        if latest_version != current_version:
+            print(f"New version available for {release['name']}: {current_version} -> {latest_version}")
+            has_updates = True
+            
+            if update:
+                release["version"] = latest_version
+                print(f"Updated {release['name']} version in config")
+    
+    # 如果需要更新且有更新内容，则写入配置文件
+    if update and has_updates:
+        with open(config_path, "w", encoding='utf-8') as f:
+            yaml.dump(config, f, allow_unicode=True, sort_keys=False)
+        print("Config file updated successfully")
+    elif update and not has_updates:
+        print("All versions are up to date")
+    
+    return has_updates
+
+def find_best_match(assets, keywords):
+    """Find the best matching asset based on the keywords."""
+    best_match = None
+    best_score = 0
+
+    for asset in assets:
+        score = sum(1 for keyword in keywords if keyword in asset["name"].lower())
+        if score > best_score:
+            best_match = asset
+            best_score = score
+
+    return best_match
 
 def download_file(url, save_path):
     """Download a file from a URL and save it to the specified path."""
@@ -78,109 +121,47 @@ def extract_file(file_path, extract_to):
     except Exception as e:
         print(f"Failed to extract {file_path}: {e}")
 
-def find_best_match(assets, keywords):
-    """
-    Find the best matching asset based on the keywords.
-    The more keywords a file matches, the higher its score.
-    """
-    best_match = None
-    best_score = 0
-
-    for asset in assets:
-        score = sum(1 for keyword in keywords if keyword in asset["name"])
-        if score > best_score:
-            best_match = asset
-            best_score = score
-
-    return best_match
-
-def process_releases(config):
+def process_releases(config, latest_releases):
     """Process each release in the YAML configuration."""
     for release in config.get("releases", []):
         name = release["name"]
         repo = release["repo"]
         file_list = release.get("file_list", [])
         
-        # 直接获取最新发布信息
-        latest_release = get_latest_release(repo)
+        latest_release = latest_releases[repo]
         if not latest_release:
             continue
 
-        # 下载文件列表中的文件
         for file_entry in file_list:
             file_keywords, save_path_suffix = file_entry.split(":")
-            keywords = file_keywords.split(",")  # Split keywords by ","
+            keywords = [k.lower() for k in file_keywords.split(",")]
             save_path = Path('bin/'+save_path_suffix)
 
-            # 查找最匹配的资源
             assets = latest_release.get("assets", [])
             best_match = find_best_match(assets, keywords)
 
             if best_match:
-                # 下载文件
                 temp_file = CACHE_DIR / best_match["name"]
                 download_file(best_match["browser_download_url"], temp_file)
-
-                # 解压文件（如果是压缩文件）
                 extract_file(temp_file, save_path)
-
-                # 清理临时文件
                 temp_file.unlink()
             else:
                 print(f"No matching file found for keywords '{file_keywords}' in release assets for {name}.")
 
-def update_config_versions(config_path: str = "config.yaml"):
-    """更新配置文件中的版本信息"""
-    # 读取当前配置
-    with open(config_path, "r", encoding='utf-8') as f:
-        config = yaml.safe_load(f)
-    
-    updated = False
-    
-    # 更新每个发布项的版本
-    for release in config.get("releases", []):
-        name = release["name"]
-        repo = release["repo"]
-        
-        # 获取最新版本信息
-        latest_release = get_latest_release(repo)
-        if latest_release:
-            latest_version = latest_release["tag_name"]
-            current_version = release.get("version")
-            
-            # 如果版本不同，更新配置
-            if current_version != latest_version:
-                release["version"] = latest_version
-                print(f"Updating {name} version: {current_version} -> {latest_version}")
-                updated = True
-    
-    # 如果有更新，写回文件
-    if updated:
-        with open(config_path, "w", encoding='utf-8') as f:
-            yaml.dump(config, f, allow_unicode=True, sort_keys=False)
-        print("Config file updated successfully")
-    else:
-        print("All versions are up to date")
-    
-    return config
-
-def upload_directory(client, local_path: str = "bin", remote_base_path: str = "Github_Software"):
+def upload_directory(client, local_path="bin", remote_base_path="Github_Software"):
     """上传本地目录到WebDAV服务器"""
     for file_path in Path(local_path).rglob('*'):
         if not file_path.is_file():
             continue
             
-        # 构建远程路径
         remote_path = f"{remote_base_path}/{file_path.relative_to(local_path)}"
         
         try:
-            # 确保远程目录存在并上传文件
             client.mkdir(str(Path(remote_path).parent))
             client.upload_sync(remote_path=remote_path, local_path=str(file_path))
             print(f"Uploaded: {file_path.relative_to(local_path)}")
         except Exception as e:
             print(f"Upload failed for {file_path.name}: {e}")
-
 
 def main():
     """主函数"""
@@ -194,29 +175,34 @@ def main():
                       help='Upload to WebDAV')
     parser.add_argument('--all', action='store_true',
                       help='Execute all operations')
+    parser.add_argument('--force', action='store_true',
+                      help='Force execution even if no updates')
     args = parser.parse_args()
 
-    # 如果没有指定任何参数，默认执行所有操作
     if not any([args.update_config, args.download, args.upload, args.all]):
         args.all = True
 
     try:
-        # 首先加载配置
-        config = None
+        # 加载配置并获取所有最新版本信息
+        config = load_yaml("config.yaml")
+        latest_releases = get_latest_releases(config)
         
-        # 更新配置或加载现有配置
-        if args.update_config or args.all:
-            print("Updating config...")
-            config = update_config_versions()
-        
-        if config is None:
-            print("Loading existing config...")
-            config = load_yaml("config.yaml")
+        # 检查版本更新(同时根据参数决定是否更新配置文件)
+        has_updates = check_and_update_versions(
+            config, 
+            latest_releases, 
+            update=(args.update_config or args.all)
+        )
+
+        # 如果没有更新且不强制执行，直接退出
+        if not has_updates and not args.force:
+            print("No new versions available. Use --force to execute anyway.")
+            return
 
         # 下载处理
         if args.download or args.all:
             print("Processing downloads...")
-            process_releases(config)
+            process_releases(config, latest_releases)
 
         # 上传处理
         if args.upload or args.all:
