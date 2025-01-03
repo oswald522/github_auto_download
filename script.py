@@ -164,29 +164,23 @@ def update_config_versions(config_path: str = "config.yaml"):
     
     return config
 
-def upload_directory(client,local_path:str="bin", remote_base_path:str="Github_Software"):
-    local_path = Path(local_path)
-    
-    # 递归上传文件和目录
-    for item in local_path.rglob('*'):
-        if item.is_file():
-            # 计算相对路径
-            relative_path = str(item.relative_to(local_path))
-            remote_path = f"{remote_base_path}/{relative_path}"
+def upload_directory(client, local_path: str = "bin", remote_base_path: str = "Github_Software"):
+    """上传本地目录到WebDAV服务器"""
+    for file_path in Path(local_path).rglob('*'):
+        if not file_path.is_file():
+            continue
             
-            # 确保远程目录存在
-            remote_dir = str(Path(remote_path).parent)
-            if not client.check(remote_dir):
-                print(f"Creating directory: {remote_dir}")
-                client.mkdir(remote_dir)
-            
-            # 上传文件
-            print(f"Uploading: {item} -> {remote_path}")
-            try:
-                client.upload_sync(remote_path=remote_path, local_path=str(item))
-                print(f"Successfully uploaded: {relative_path}")
-            except Exception as e:
-                print(f"Error uploading {relative_path}: {str(e)}")
+        # 构建远程路径
+        remote_path = f"{remote_base_path}/{file_path.relative_to(local_path)}"
+        
+        try:
+            # 确保远程目录存在并上传文件
+            client.mkdir(str(Path(remote_path).parent))
+            client.upload_sync(remote_path=remote_path, local_path=str(file_path))
+            print(f"Uploaded: {file_path.relative_to(local_path)}")
+        except Exception as e:
+            print(f"Upload failed for {file_path.name}: {e}")
+
 
 def main():
     """主函数"""

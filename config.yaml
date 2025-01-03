@@ -1,26 +1,25 @@
 releases:
 - name: fzf
   repo: junegunn/fzf
-  version: ''
-  file_list: 
-  # keywords:file_path
+  version: v0.57.0
+  file_list:
   - linux,amd64:amd64
   - linux,arm64:arm
 - name: dust
   repo: bootandy/dust
-  version: ''
+  version: v1.1.1
   file_list:
   - x86_64-unknown-linux-gnu:amd64
   - arm-unknown-linux-gnu:arm
 - name: eza
   repo: eza-community/eza
-  version: ''
+  version: v0.20.15
   file_list:
   - eza_arm-unknown-linux-gnueabihf:arm
   - eza_x86_64-unknown-linux-gnu:amd64
 - name: caddy
   repo: caddyserver/caddy
-  version: ''
+  version: v2.9.0
   file_list:
-  - caddy,linux_amd64,deb:tools/amd64
-  - caddy,linux_arm64.deb:tools/arm
+  - linux_amd64,tar.gz:tools/amd64
+  - linux_arm64,tar.gz:tools/arm
