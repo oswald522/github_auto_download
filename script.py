@@ -1,8 +1,19 @@
+import os
 import requests
 import yaml
 import zipfile
 import tarfile
 from pathlib import Path
+from webdav3.client import Client
+
+
+# WEBDAV3 options
+options = {
+    'webdav_hostname': os.getenv('WEBDAV_URL'),
+    'webdav_login': os.getenv('WEBDAV_USERNAME'),
+    'webdav_password': os.getenv('WEBDAV_PASSWORD'),
+    'disable_check': True
+}
 
 # GitHub API URL template for fetching release information
 GITHUB_API_URL = "https://api.github.com/repos/{repo}/releases/latest"
@@ -88,49 +99,143 @@ def process_releases(config):
     for release in config.get("releases", []):
         name = release["name"]
         repo = release["repo"]
-        version = release.get("version", "")
         file_list = release.get("file_list", [])
-
-        # Fetch the latest release info
+        
+        # 直接获取最新发布信息
         latest_release = get_latest_release(repo)
         if not latest_release:
             continue
 
-        latest_version = latest_release["tag_name"]
-        if version and latest_version != version:
-            print(f"Warning: Config version ({version}) does not match latest version ({latest_version}).")
-
-        # Check if the version is updated
-        if not is_version_updated(name, latest_version):
-            print(f"{name} is up-to-date. Skipping download.")
-            continue
-
-        # Download files based on file_list
+        # 下载文件列表中的文件
         for file_entry in file_list:
             file_keywords, save_path_suffix = file_entry.split(":")
             keywords = file_keywords.split(",")  # Split keywords by ","
             save_path = Path('bin/'+save_path_suffix)
 
-            # Find the best matching asset
+            # 查找最匹配的资源
             assets = latest_release.get("assets", [])
             best_match = find_best_match(assets, keywords)
 
             if best_match:
-                # Download the file
+                # 下载文件
                 temp_file = CACHE_DIR / best_match["name"]
                 download_file(best_match["browser_download_url"], temp_file)
 
-                # Extract the file if it's a compressed file
+                # 解压文件（如果是压缩文件）
                 extract_file(temp_file, save_path)
 
-                # Clean up the temporary file
+                # 清理临时文件
                 temp_file.unlink()
             else:
                 print(f"No matching file found for keywords '{file_keywords}' in release assets for {name}.")
 
-if __name__ == "__main__":
-    # Load the YAML configuration
-    config = load_yaml("config.yaml")
+def update_config_versions(config_path: str = "config.yaml"):
+    """更新配置文件中的版本信息"""
+    # 读取当前配置
+    with open(config_path, "r", encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    updated = False
+    
+    # 更新每个发布项的版本
+    for release in config.get("releases", []):
+        name = release["name"]
+        repo = release["repo"]
+        
+        # 获取最新版本信息
+        latest_release = get_latest_release(repo)
+        if latest_release:
+            latest_version = latest_release["tag_name"]
+            current_version = release.get("version")
+            
+            # 如果版本不同，更新配置
+            if current_version != latest_version:
+                release["version"] = latest_version
+                print(f"Updating {name} version: {current_version} -> {latest_version}")
+                updated = True
+    
+    # 如果有更新，写回文件
+    if updated:
+        with open(config_path, "w", encoding='utf-8') as f:
+            yaml.dump(config, f, allow_unicode=True, sort_keys=False)
+        print("Config file updated successfully")
+    else:
+        print("All versions are up to date")
+    
+    return config
 
-    # Process the releases
-    process_releases(config)
+def upload_directory(client,local_path:str="bin", remote_base_path:str="Github_Software"):
+    local_path = Path(local_path)
+    
+    # 递归上传文件和目录
+    for item in local_path.rglob('*'):
+        if item.is_file():
+            # 计算相对路径
+            relative_path = str(item.relative_to(local_path))
+            remote_path = f"{remote_base_path}/{relative_path}"
+            
+            # 确保远程目录存在
+            remote_dir = str(Path(remote_path).parent)
+            if not client.check(remote_dir):
+                print(f"Creating directory: {remote_dir}")
+                client.mkdir(remote_dir)
+            
+            # 上传文件
+            print(f"Uploading: {item} -> {remote_path}")
+            try:
+                client.upload_sync(remote_path=remote_path, local_path=str(item))
+                print(f"Successfully uploaded: {relative_path}")
+            except Exception as e:
+                print(f"Error uploading {relative_path}: {str(e)}")
+
+def main():
+    """主函数"""
+    import argparse
+    parser = argparse.ArgumentParser(description='GitHub Release Downloader')
+    parser.add_argument('--update-config', action='store_true', 
+                      help='Update versions in config.yaml')
+    parser.add_argument('--download', action='store_true',
+                      help='Download and process releases')
+    parser.add_argument('--upload', action='store_true',
+                      help='Upload to WebDAV')
+    parser.add_argument('--all', action='store_true',
+                      help='Execute all operations')
+    args = parser.parse_args()
+
+    # 如果没有指定任何参数，默认执行所有操作
+    if not any([args.update_config, args.download, args.upload, args.all]):
+        args.all = True
+
+    try:
+        # 首先加载配置
+        config = None
+        
+        # 更新配置或加载现有配置
+        if args.update_config or args.all:
+            print("Updating config...")
+            config = update_config_versions()
+        
+        if config is None:
+            print("Loading existing config...")
+            config = load_yaml("config.yaml")
+
+        # 下载处理
+        if args.download or args.all:
+            print("Processing downloads...")
+            process_releases(config)
+
+        # 上传处理
+        if args.upload or args.all:
+            print("Starting upload...")
+            if all(key in os.environ for key in ['WEBDAV_URL', 'WEBDAV_USERNAME', 'WEBDAV_PASSWORD']):
+                client = Client(options)
+                upload_directory(client)
+            else:
+                print("Error: WebDAV credentials not found in environment variables")
+
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        raise
+
+if __name__ == "__main__":
+    main()
