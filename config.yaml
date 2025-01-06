@@ -23,3 +23,10 @@ releases:
   file_list:
   - linux_amd64,tar.gz:amd64
   - linux_arm64,tar.gz:arm
+
+- name: Minforge
+  repo: conda-forge/miniforge
+  version: ""
+  file_list:
+  - Miniforge3-Linux-x86_64.sh:amd64
+  - Miniforge3-Linux-aarch64.sh:arm

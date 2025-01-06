@@ -106,7 +106,9 @@ def download_file(url, save_path):
         print(f"Failed to download {url}: {response.status_code}")
 
 def extract_file(file_path, extract_to):
-    """Extract a compressed file to the specified directory."""
+    """Extract a compressed file to the specified directory.
+    or copy regular file.
+    """
     try:
         if file_path.suffix == ".zip":
             with zipfile.ZipFile(file_path, "r") as zip_ref:
@@ -117,7 +119,11 @@ def extract_file(file_path, extract_to):
                 tar_ref.extractall(extract_to)
                 print(f"Extracted {file_path} to {extract_to}")
         else:
-            print(f"File {file_path} is not a recognized archive format. Skipping extraction.")
+            # 非压缩文件的处理
+            import shutil
+            dest_path = Path(extract_to) / file_path.name
+            shutil.copy2(file_path, dest_path)
+            print(f"Copied {file_path} to {dest_path}")
     except Exception as e:
         print(f"Failed to extract {file_path}: {e}")
 
