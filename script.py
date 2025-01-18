@@ -40,7 +40,7 @@ def get_latest_releases(config):
             latest_releases[repo] = None
     return latest_releases
 
-def check_and_update_versions(config, latest_releases, config_path="config.yaml", update=False) -> bool:
+def check_and_update_versions(config, latest_releases, config_path="config.yaml", update=False):
     """
     检查并可选地更新配置文件中的版本信息
     参数:
@@ -49,9 +49,10 @@ def check_and_update_versions(config, latest_releases, config_path="config.yaml"
         config_path: 配置文件路径
         update: 是否更新配置文件
     返回:
-        bool: 是否有版本更新
+        tuple: (是否有版本更新, 更新的项目列表)
     """
     has_updates = False
+    updated_projects = []
     
     for release in config.get("releases", []):
         repo = release["repo"]
@@ -65,6 +66,7 @@ def check_and_update_versions(config, latest_releases, config_path="config.yaml"
         if latest_version != current_version:
             print(f"New version available for {release['name']}: {current_version} -> {latest_version}")
             has_updates = True
+            updated_projects.append(release["name"])
             
             if update:
                 release["version"] = latest_version
@@ -78,7 +80,7 @@ def check_and_update_versions(config, latest_releases, config_path="config.yaml"
     elif update and not has_updates:
         print("All versions are up to date")
     
-    return has_updates
+    return has_updates, updated_projects
 
 def find_best_match(assets, keywords):
     """Find the best matching asset based on the keywords."""
@@ -127,10 +129,13 @@ def extract_file(file_path, extract_to):
     except Exception as e:
         print(f"Failed to extract {file_path}: {e}")
 
-def process_releases(config, latest_releases):
+def process_releases(config, latest_releases,updated_projects):
     """Process each release in the YAML configuration."""
     for release in config.get("releases", []):
         name = release["name"]
+        if name not in updated_projects:
+            print(f"Skipping {name} as it's not updated.")
+            continue
         repo = release["repo"]
         file_list = release.get("file_list", [])
         
@@ -193,8 +198,8 @@ def main():
         config = load_yaml("config.yaml")
         latest_releases = get_latest_releases(config)
         
-        # 检查版本更新(同时根据参数决定是否更新配置文件)
-        has_updates = check_and_update_versions(
+        # 检查版本更新标志及更新的项目名称(同时根据参数决定是否更新配置文件)
+        has_updates,updated_projects = check_and_update_versions(
             config, 
             latest_releases, 
             update=(args.update_config or args.all)
@@ -208,7 +213,7 @@ def main():
         # 下载处理
         if args.download or args.all:
             print("Processing downloads...")
-            process_releases(config, latest_releases)
+            process_releases(config, latest_releases,updated_projects)
 
         # 上传处理
         if args.upload or args.all:
