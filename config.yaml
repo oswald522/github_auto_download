@@ -29,3 +29,9 @@ releases:
   file_list:
   - Miniforge3-Linux-x86_64.sh:amd64
   - Miniforge3-Linux-aarch64.sh:arm
+- name: ripgrep
+  repo: BurntSushi/ripgrep
+  version: " "
+  file_list:
+  - x86_64-unknown-linux-musl,tar.gz:amd64
+  - aarch64-unknown-linux-gnu.tar.gz:arm
