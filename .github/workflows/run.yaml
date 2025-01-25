@@ -2,7 +2,7 @@ name: Daily Download and Save
 
 on:
   schedule:
-    - cron: "0 2 * * *" # 每天凌晨 2 点运行
+    - cron: "0 2 */3 * *" # 每3天凌晨 2 点运行
   workflow_dispatch: # 手动触发工作流
     inputs:
       reason:
@@ -45,7 +45,14 @@ jobs:
           WEBDAV_USERNAME: ${{ secrets.WEBDAV_USERNAME }}
           WEBDAV_PASSWORD: ${{ secrets.WEBDAV_PASSWORD }}
         run: |
-          python script.py
+          # 检查是否是 workflow_dispatch 触发的
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected: Running script with --force"
+            python script.py --all
+          else
+            echo "Scheduled or push trigger: Running script normally"
+            python script.py 
+          fi
 
       #  # Step 5: 保存 bins 文件夹为 Artifact
       # - name: Save bins folder
