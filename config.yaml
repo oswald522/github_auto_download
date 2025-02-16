@@ -13,7 +13,7 @@ releases:
   - arm-unknown-linux-gnu:aarch64
 - name: eza
   repo: eza-community/eza
-  version: v0.20.20
+  version: v0.20.21
   file_list:
   - eza_arm-unknown-linux-gnueabihf:aarch64
   - eza_x86_64-unknown-linux-gnu:amd64
