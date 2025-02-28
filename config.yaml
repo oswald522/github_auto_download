@@ -7,13 +7,13 @@ releases:
   - linux,arm64:aarch64
 - name: dust
   repo: bootandy/dust
-  version: v1.1.1
+  version: v1.1.2
   file_list:
   - x86_64-unknown-linux-gnu:amd64
   - arm-unknown-linux-gnu:aarch64
 - name: eza
   repo: eza-community/eza
-  version: v0.20.22
+  version: v0.20.23
   file_list:
   - eza_arm-unknown-linux-gnueabihf:aarch64
   - eza_x86_64-unknown-linux-gnu:amd64
