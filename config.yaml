@@ -1,7 +1,7 @@
 releases:
 - name: fzf
   repo: junegunn/fzf
-  version: v0.61.3
+  version: v0.62.0
   file_list:
   - linux,amd64:amd64
   - linux,arm64:aarch64
