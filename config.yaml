@@ -1,7 +1,7 @@
 releases:
 - name: fzf
   repo: junegunn/fzf
-  version: v0.62.0
+  version: v0.63.0
   file_list:
   - linux,amd64:amd64
   - linux,arm64:aarch64
@@ -13,7 +13,7 @@ releases:
   - arm-unknown-linux-gnu:aarch64
 - name: eza
   repo: eza-community/eza
-  version: v0.21.5
+  version: v0.21.6
   file_list:
   - eza_arm-unknown-linux-gnueabihf:aarch64
   - eza_x86_64-unknown-linux-gnu:amd64
