@@ -1,38 +1,38 @@
 releases:
 - name: fzf
   repo: junegunn/fzf
-  version: v0.63.0
+  version: ""
   file_list:
   - linux,amd64:amd64
   - linux,arm64:aarch64
 - name: dust
   repo: bootandy/dust
-  version: v1.2.1
+  version: ""
   file_list:
   - x86_64-unknown-linux-gnu:amd64
   - arm-unknown-linux-gnu:aarch64
 - name: eza
   repo: eza-community/eza
-  version: v0.21.6
+  version: ""
   file_list:
   - eza_arm-unknown-linux-gnueabihf:aarch64
   - eza_x86_64-unknown-linux-gnu:amd64
 - name: caddy
   repo: caddyserver/caddy
-  version: v2.10.0
+  version: ""
   file_list:
   - linux_amd64,tar.gz:amd64
   - linux_arm64,tar.gz:aarch64
 - name: Minforge
   repo: conda-forge/miniforge
-  version: 25.3.0-3
+  version: ""
   file_list:
   - Miniforge3-Linux-x86_64.sh:amd64
   - Miniforge3-Linux-aarch64.sh:aarch64
   - Miniforge3,Windows-x86_64.exe:win64
 - name: ripgrep
   repo: BurntSushi/ripgrep
-  version: 14.1.1
+  version: ""
   file_list:
   - x86_64-unknown-linux-musl,tar.gz:amd64
   - aarch64-unknown-linux-gnu.tar.gz:aarch64
