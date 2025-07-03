@@ -201,7 +201,7 @@ def process_releases(config, latest_releases, updated_projects):
                 )
 
 
-def upload_directory(client, local_path="bin", remote_base_path="Github_Software"):
+def upload_directory(client, local_path="bin", remote_base_path="GithubBak"):
     """上传本地目录到WebDAV服务器"""
     for file_path in Path(local_path).rglob("*"):
         if not file_path.is_file():
