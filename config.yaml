@@ -1,13 +1,13 @@
 releases:
 - name: fzf
   repo: junegunn/fzf
-  version: v0.63.0
+  version: v0.64.0
   file_list:
   - linux,amd64:amd64
   - linux,arm64:aarch64
 - name: dust
   repo: bootandy/dust
-  version: v1.2.1
+  version: v1.2.2
   file_list:
   - x86_64-unknown-linux-gnu:amd64
   - arm-unknown-linux-gnu:aarch64
