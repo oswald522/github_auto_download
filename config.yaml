@@ -32,7 +32,7 @@ releases:
   - Miniforge3,Windows-x86_64.exe:win64
 - name: ripgrep
   repo: BurntSushi/ripgrep
-  version: 15.0.0
+  version: 15.1.0
   file_list:
   - x86_64-unknown-linux-musl,tar.gz:amd64
   - aarch64-unknown-linux-gnu.tar.gz:aarch64
