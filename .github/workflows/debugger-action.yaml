@@ -1,5 +1,10 @@
 name: debugger-action
 on:
+  workflow_dispatch: # 手动触发工作流
+    inputs:
+      reason:
+        description: "Reason for manual trigger"
+        required: false
   push:
     branches:
       - test
